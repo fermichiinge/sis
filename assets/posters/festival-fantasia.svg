@@ -1,0 +1,19 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="420" height="620" viewBox="0 0 420 620">
+  <defs>
+    <linearGradient id="g4" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7a0e2f" />
+      <stop offset="100%" stop-color="#c73f33" />
+    </linearGradient>
+  </defs>
+  <rect width="420" height="620" rx="26" fill="url(#g4)" />
+  <rect x="50" y="70" width="320" height="205" rx="18" fill="#ffd8a7" opacity="0.9" />
+  <circle cx="110" cy="130" r="18" fill="#ff8f4f" />
+  <circle cx="210" cy="130" r="18" fill="#ff8f4f" />
+  <circle cx="310" cy="130" r="18" fill="#ff8f4f" />
+  <path d="M70 220 Q210 112 350 220" stroke="#b2332e" stroke-width="10" fill="none" />
+  <path d="M36 356 C125 276 290 278 385 358" stroke="#ffdba8" stroke-width="18" fill="none" stroke-linecap="round" />
+  <path d="M54 394 C132 332 292 336 364 398" stroke="#ff8f5a" stroke-width="11" fill="none" stroke-linecap="round" opacity="0.85" />
+  <text x="34" y="474" font-family="Verdana" font-size="42" fill="#ffe8c8" font-weight="800">FESTIVAL</text>
+  <text x="34" y="528" font-family="Verdana" font-size="57" fill="#fff5e0" font-weight="900">FANTASIA</text>
+  <text x="34" y="566" font-family="Verdana" font-size="23" fill="#ffd9ba">Un show brillante para toda la familia</text>
+</svg>

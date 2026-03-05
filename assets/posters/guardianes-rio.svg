@@ -1,0 +1,16 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="420" height="620" viewBox="0 0 420 620">
+  <defs>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f6f96" />
+      <stop offset="100%" stop-color="#0b3857" />
+    </linearGradient>
+  </defs>
+  <rect width="420" height="620" rx="26" fill="url(#g3)" />
+  <path d="M0 400 C70 360 140 420 210 392 C280 360 350 430 420 390 V620 H0 Z" fill="#32aed1" opacity="0.8" />
+  <path d="M0 450 C80 410 150 470 220 442 C290 410 350 470 420 430 V620 H0 Z" fill="#9be8ff" opacity="0.42" />
+  <circle cx="322" cy="120" r="60" fill="#e0f9ff" opacity="0.88" />
+  <path d="M305 138 C305 118 334 118 334 138 C334 153 322 164 322 176 C322 164 305 154 305 138 Z" fill="#0f6f96" />
+  <text x="34" y="474" font-family="Verdana" font-size="44" fill="#d5f5ff" font-weight="800">GUARDIANES</text>
+  <text x="34" y="526" font-family="Verdana" font-size="54" fill="#ffffff" font-weight="900">DEL RIO</text>
+  <text x="34" y="566" font-family="Verdana" font-size="23" fill="#bce9ff" opacity="0.95">Leyendas vivas bajo la corriente</text>
+</svg>

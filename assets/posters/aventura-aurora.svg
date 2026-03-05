@@ -1,0 +1,16 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="420" height="620" viewBox="0 0 420 620">
+  <defs>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f87a2a" />
+      <stop offset="100%" stop-color="#ffbf4d" />
+    </linearGradient>
+  </defs>
+  <rect width="420" height="620" rx="26" fill="url(#g2)" />
+  <circle cx="98" cy="130" r="55" fill="#fff8d7" opacity="0.9" />
+  <path d="M95 85 L112 142 L78 120 L116 120 L82 142 Z" fill="#ff8d00" />
+  <path d="M38 356 C130 278 295 266 382 362" stroke="#fff4cf" stroke-width="20" fill="none" stroke-linecap="round" />
+  <path d="M60 388 C150 330 280 336 362 398" stroke="#ff9b40" stroke-width="12" fill="none" stroke-linecap="round" opacity="0.8" />
+  <text x="34" y="470" font-family="Verdana" font-size="48" fill="#512807" font-weight="900">AVENTURA</text>
+  <text x="34" y="524" font-family="Verdana" font-size="62" fill="#fff6dc" font-weight="900">AURORA</text>
+  <text x="34" y="565" font-family="Verdana" font-size="24" fill="#5b2f0a" opacity="0.9">Color, musica y mucha emocion</text>
+</svg>
