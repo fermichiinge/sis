@@ -1,0 +1,135 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LumiCine Magic | Sistema de Reserva</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&family=Cinzel+Decorative:wght@700&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body data-theme="light">
+  <div class="film-ribbon ribbon-top" aria-hidden="true"></div>
+  <div class="film-ribbon ribbon-bottom" aria-hidden="true"></div>
+  <div class="spark spark-a" aria-hidden="true"></div>
+  <div class="spark spark-b" aria-hidden="true"></div>
+
+  <header class="hero">
+    <div>
+      <p class="kicker">Sistema de Reserva de Cine</p>
+      <h1>LumiCine Magic</h1>
+      <p class="hero-text">Elige pelicula, reserva asientos y paga en segundos con una experiencia animada.</p>
+    </div>
+
+    <div class="hero-controls">
+      <label class="field-inline" for="currencySelect">
+        Moneda
+        <select id="currencySelect" aria-label="Seleccionar moneda">
+          <option value="GTQ">Quetzales (GTQ)</option>
+          <option value="USD">Dolares (USD)</option>
+        </select>
+      </label>
+      <button id="themeToggle" class="btn-secondary" type="button" aria-pressed="false">Modo oscuro</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel movies-panel">
+      <h2>Cartelera</h2>
+      <p class="panel-subtitle">Selecciona una funcion para ver asientos y reservar.</p>
+      <div id="moviesGrid" class="movies-grid" aria-live="polite"></div>
+    </section>
+
+    <section class="panel booking-panel">
+      <h2>Asientos</h2>
+      <div id="selectedMovieInfo" class="selected-movie-info"></div>
+
+      <div class="screen">Pantalla</div>
+      <div id="seatsContainer" class="seats-container" aria-label="Mapa de asientos"></div>
+
+      <div class="legend">
+        <span><i class="seat-dot available"></i>Disponible</span>
+        <span><i class="seat-dot selected"></i>Seleccionado</span>
+        <span><i class="seat-dot occupied"></i>Ocupado</span>
+      </div>
+
+      <div class="booking-summary">
+        <p id="selectedSeatsText">Asientos: ninguno</p>
+        <p id="ticketCountText">Boletos: 0</p>
+        <p id="totalText">Total: Q0.00</p>
+        <div class="summary-actions">
+          <button id="payButton" class="btn-primary" type="button" disabled>Reservar y pagar</button>
+          <button id="clearSelectionButton" class="btn-secondary" type="button" disabled>Limpiar</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel reservations-panel">
+      <h2>Reservas activas</h2>
+      <p class="panel-subtitle">Desde aqui puedes descargar tu boleto PDF o cancelar reservas.</p>
+      <div id="reservationsList" class="reservations-list"></div>
+    </section>
+  </main>
+
+  <div id="paymentModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-card">
+      <button id="closePaymentModal" class="modal-close" type="button" aria-label="Cerrar">&times;</button>
+      <h3>Mini pasarela de pago</h3>
+      <p id="paymentSummary" class="payment-summary"></p>
+
+      <form id="paymentForm" novalidate>
+        <label for="cardHolder">
+          Nombre del titular
+          <input id="cardHolder" name="cardHolder" type="text" autocomplete="cc-name" maxlength="60" pattern="[A-Za-zÀ-ÿ' ]{3,60}" required />
+        </label>
+
+        <label for="buyerEmail">
+          Correo para enviar comprobante
+          <input id="buyerEmail" name="buyerEmail" type="email" autocomplete="email" maxlength="80" required />
+        </label>
+
+        <label for="cardNumber">
+          Numero de tarjeta
+          <input id="cardNumber" name="cardNumber" type="text" inputmode="numeric" autocomplete="cc-number" maxlength="19" pattern="(?:\d{4}\s){3}\d{4}" placeholder="1234 5678 9012 3456" required />
+        </label>
+
+        <div class="split-fields">
+          <label for="expiryDate">
+            Vencimiento (MM/AA)
+            <input id="expiryDate" name="expiryDate" type="text" inputmode="numeric" autocomplete="cc-exp" maxlength="5" pattern="(0[1-9]|1[0-2])\/\d{2}" placeholder="MM/AA" required />
+          </label>
+
+          <label for="cvv">
+            CVV
+            <input id="cvv" name="cvv" type="text" inputmode="numeric" autocomplete="cc-csc" maxlength="3" pattern="\d{3}" placeholder="123" required />
+          </label>
+        </div>
+
+        <label for="paymentMethod">
+          Metodo de pago
+          <select id="paymentMethod" name="paymentMethod" required>
+            <option value="">Selecciona una opcion</option>
+            <option value="Tarjeta de credito">Tarjeta de credito</option>
+            <option value="Tarjeta de debito">Tarjeta de debito</option>
+            <option value="Billetera digital">Billetera digital</option>
+          </select>
+        </label>
+
+        <label class="checkbox-inline" for="termsCheck">
+          <input id="termsCheck" name="termsCheck" type="checkbox" required />
+          Confirmo que los datos son correctos.
+        </label>
+
+        <p id="paymentError" class="form-error" role="alert"></p>
+
+        <button id="confirmPaymentBtn" class="btn-primary" type="submit">Pagar ahora</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
