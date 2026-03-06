@@ -632,8 +632,8 @@ function printInvoice(id) {
     ? reservation.extras.map((e) => `${e.name} x${e.qty}`).join(", ")
     : "Sin acompanamientos";
 
-  const ticketPages = reservation.seats.map((seat, index) => `
-    <section class='ticket ${index < reservation.seats.length - 1 ? "page-break" : ""}'>
+  const ticketPages = reservation.seats.map((seat) => `
+    <section class='ticket'>
       <header class='head'>
         <img src='${logoUrl}' alt='logo'>
         <div>
@@ -672,7 +672,7 @@ function printInvoice(id) {
   popup.document.write(`<!doctype html><html lang='es'><head><meta charset='UTF-8'><title>Boletos ${escapeHtml(reservation.id)}</title>
     <style>
       body{font-family:Arial;margin:20px;color:#2f1c0c}
-      .ticket{border:2px solid #866137;border-radius:10px;padding:14px}
+      .ticket{border:2px solid #866137;border-radius:10px;padding:14px;break-inside:avoid}
       .head{display:flex;gap:12px;align-items:center;border-bottom:1px dashed #866137;padding-bottom:10px;margin-bottom:10px}
       .head img{width:70px;height:70px}
       h1{margin:0;font-size:26px}
@@ -685,8 +685,18 @@ function printInvoice(id) {
       th{background:#f1dcc1}
       .total{margin-top:10px;font-size:14px;font-weight:700}
       .foot{font-size:12px;color:#6a4724}
-      .page-break{page-break-after:always}
-      @media print{body{margin:0.5cm}.ticket{break-inside:avoid}.page-break{page-break-after:always}}
+      @media print{
+        body{margin:0.5cm}
+        .ticket{
+          min-height:260mm;
+          page-break-after:always;
+          break-after:page;
+        }
+        .ticket:last-of-type{
+          page-break-after:auto;
+          break-after:auto;
+        }
+      }
     </style>
     </head><body>
     ${ticketPages}
