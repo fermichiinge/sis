@@ -93,9 +93,6 @@ const ui = {
   buyerEmail: document.getElementById("buyerEmail"),
   paymentTypeRadios: document.querySelectorAll("input[name='paymentType']"),
   cardFields: document.getElementById("cardFields"),
-  cardNumber: document.getElementById("cardNumber"),
-  cardExpiry: document.getElementById("cardExpiry"),
-  cvv: document.getElementById("cvv"),
   transferFields: document.getElementById("transferFields"),
   bankName: document.getElementById("bankName"),
   voucherNumber: document.getElementById("voucherNumber"),
@@ -397,17 +394,6 @@ function bindPaymentModalEvents() {
     formError("");
   });
 
-  ui.cardNumber.addEventListener("input", () => {
-    const digits = ui.cardNumber.value.replace(/\D/g, "").slice(0, 16);
-    ui.cardNumber.value = digits.replace(/(\d{4})(?=\d)/g, "$1 ");
-    formError("");
-  });
-
-  ui.cvv.addEventListener("input", () => {
-    ui.cvv.value = ui.cvv.value.replace(/\D/g, "").slice(0, 3);
-    formError("");
-  });
-
   ui.voucherNumber.addEventListener("input", () => {
     ui.voucherNumber.value = ui.voucherNumber.value.replace(/[^A-Za-z0-9-]/g, "").slice(0, 25);
     formError("");
@@ -469,13 +455,6 @@ function validatePayment() {
 
   if (selectedSeats.size === 0 || selectedSeats.size > MAX_TICKETS) {
     errors.push(`Debes elegir entre 1 y ${MAX_TICKETS} asientos.`);
-  }
-
-  if (type === "Tarjeta") {
-    const digits = ui.cardNumber.value.replace(/\s/g, "");
-    if (!/^\d{16}$/.test(digits) || !luhn(digits)) errors.push("Numero de tarjeta invalido.");
-    if (!validMonth(ui.cardExpiry.value)) errors.push("Vencimiento invalido.");
-    if (!/^\d{3}$/.test(ui.cvv.value.trim())) errors.push("CVV invalido.");
   }
 
   if (type === "Transferencia") {
@@ -723,15 +702,14 @@ function paymentDetails(type) {
     };
   }
   if (type === "Tarjeta") {
-    const digits = ui.cardNumber.value.replace(/\s/g, "");
-    return { last4: digits.slice(-4), expiry: ui.cardExpiry.value };
+    return { note: "Tarjeta simplificada" };
   }
   return { note: "Pago en taquilla" };
 }
 
 function paymentLabel(reservation) {
   if (reservation.paymentType === "Transferencia") return `Transferencia ${reservation.paymentDetails.bank} / Boleta ${reservation.paymentDetails.voucher}`;
-  if (reservation.paymentType === "Tarjeta") return `Tarjeta terminada en ${reservation.paymentDetails.last4}`;
+  if (reservation.paymentType === "Tarjeta") return "Pago con tarjeta simplificado";
   return "Pago en taquilla";
 }
 function ensureMovieTime() {
