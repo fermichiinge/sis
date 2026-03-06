@@ -577,9 +577,7 @@ function closeInvoiceModal() {
 
 function drawInvoice(reservation) {
   const movie = movieById.get(reservation.movieId);
-  const rows = [
-    `<tr><td>Boleto ${escapeHtml(movie.title)}</td><td>${reservation.ticketCount}</td><td>${money(reservation.ticketPriceGTQ, "GTQ")}</td><td>${money(reservation.ticketTotalGTQ, "GTQ")}</td></tr>`
-  ];
+  const rows = reservation.seats.map((seat) => `<tr><td>Boleto ${escapeHtml(movie.title)} - Asiento ${escapeHtml(seat)}</td><td>1</td><td>${money(reservation.ticketPriceGTQ, "GTQ")}</td><td>${money(reservation.ticketPriceGTQ, "GTQ")}</td></tr>`);
 
   if (reservation.extras.length) {
     reservation.extras.forEach((e) => rows.push(`<tr><td>${escapeHtml(e.name)}</td><td>${e.qty}</td><td>${money(e.priceGTQ, "GTQ")}</td><td>${money(e.totalGTQ, "GTQ")}</td></tr>`));
@@ -604,6 +602,7 @@ function drawInvoice(reservation) {
         <div class="invoice-field"><strong>Funcion</strong><span>${dateNice(reservation.showDate)} ${reservation.showTime}</span></div>
         <div class="invoice-field"><strong>Asientos</strong><span>${escapeHtml(reservation.seats.join(", "))}</span></div>
         <div class="invoice-field"><strong>Pago</strong><span>${escapeHtml(paymentLabel(reservation))}</span></div>
+        <div class="invoice-field"><strong>Boletos individuales</strong><span>${reservation.seats.map((seat) => `${reservation.id}-${seat}`).join(", ")}</span></div>
       </section>
 
       <table class="invoice-table">
@@ -629,18 +628,68 @@ function printInvoice(id) {
   if (!reservation || !movie) return toast("No se pudo generar PDF.", true);
 
   const logoUrl = new URL("assets/logo-lumicine.svg", window.location.href).href;
-  const rows = [`<tr><td>Boleto ${escapeHtml(movie.title)}</td><td>${reservation.ticketCount}</td><td>${money(reservation.ticketPriceGTQ, "GTQ")}</td><td>${money(reservation.ticketTotalGTQ, "GTQ")}</td></tr>`];
-  if (reservation.extras.length) reservation.extras.forEach((e) => rows.push(`<tr><td>${escapeHtml(e.name)}</td><td>${e.qty}</td><td>${money(e.priceGTQ, "GTQ")}</td><td>${money(e.totalGTQ, "GTQ")}</td></tr>`));
-  else rows.push("<tr><td colspan='4'>Sin acompanamientos</td></tr>");
+  const extrasText = reservation.extras.length
+    ? reservation.extras.map((e) => `${e.name} x${e.qty}`).join(", ")
+    : "Sin acompanamientos";
+
+  const ticketPages = reservation.seats.map((seat, index) => `
+    <section class='ticket ${index < reservation.seats.length - 1 ? "page-break" : ""}'>
+      <header class='head'>
+        <img src='${logoUrl}' alt='logo'>
+        <div>
+          <h1>Boleto LumiCine Retro</h1>
+          <p>Reserva ${escapeHtml(reservation.id)} | Boleto ${escapeHtml(reservation.id)}-${escapeHtml(seat)}</p>
+        </div>
+      </header>
+
+      <section class='grid'>
+        <div class='field'><strong>Cliente</strong>${escapeHtml(reservation.customerName)}</div>
+        <div class='field'><strong>Correo</strong>${escapeHtml(reservation.email)}</div>
+        <div class='field'><strong>Pelicula</strong>${escapeHtml(movie.title)}</div>
+        <div class='field'><strong>Funcion</strong>${dateNice(reservation.showDate)} ${reservation.showTime}</div>
+        <div class='field'><strong>Asiento</strong>${escapeHtml(seat)}</div>
+        <div class='field'><strong>Pago</strong>${escapeHtml(paymentLabel(reservation))}</div>
+      </section>
+
+      <table>
+        <thead>
+          <tr><th>Concepto</th><th>Cantidad</th><th>Precio</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Boleto ${escapeHtml(movie.title)} - Asiento ${escapeHtml(seat)}</td><td>1</td><td>${money(reservation.ticketPriceGTQ, "GTQ")}</td></tr>
+          <tr><td>Extras compartidos</td><td>-</td><td>${escapeHtml(extrasText)}</td></tr>
+        </tbody>
+      </table>
+
+      <p class='total'>Valor del boleto: ${money(reservation.ticketPriceGTQ, "GTQ")} | Total reserva: ${money(reservation.totalGTQ, "GTQ")} (${money(toUSD(reservation.totalGTQ), "USD")})</p>
+      <p class='foot'>Emitido: ${dateTimeNice(reservation.createdAt)}</p>
+    </section>
+  `).join("");
 
   const popup = window.open("", "_blank", "width=900,height=760");
   if (!popup) return toast("Habilita ventanas emergentes para PDF.", true);
 
-  popup.document.write(`<!doctype html><html lang='es'><head><meta charset='UTF-8'><title>Factura ${escapeHtml(reservation.id)}</title>
-    <style>body{font-family:Arial;margin:20px;color:#2f1c0c}.box{border:2px solid #866137;border-radius:10px;padding:14px}.head{display:flex;gap:12px;align-items:center;border-bottom:1px dashed #866137;padding-bottom:10px;margin-bottom:10px}.head img{width:70px;height:70px}h1{margin:0;font-size:26px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.field{border:1px solid #b6966f;border-radius:6px;padding:6px}strong{display:block;font-size:11px;color:#6a4724}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #b6966f;padding:6px;text-align:left}th{background:#f1dcc1}.total{margin-top:10px;font-size:14px;font-weight:700}</style></head><body>
-    <article class='box'><header class='head'><img src='${logoUrl}' alt='logo'><div><h1>Factura LumiCine Retro</h1><p>Reserva ${escapeHtml(reservation.id)} | ${dateTimeNice(reservation.createdAt)}</p></div></header>
-    <section class='grid'><div class='field'><strong>Cliente</strong>${escapeHtml(reservation.customerName)}</div><div class='field'><strong>Correo</strong>${escapeHtml(reservation.email)}</div><div class='field'><strong>Pelicula</strong>${escapeHtml(movie.title)}</div><div class='field'><strong>Funcion</strong>${dateNice(reservation.showDate)} ${reservation.showTime}</div><div class='field'><strong>Asientos</strong>${escapeHtml(reservation.seats.join(", "))}</div><div class='field'><strong>Pago</strong>${escapeHtml(paymentLabel(reservation))}</div></section>
-    <table><thead><tr><th>Concepto</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th></tr></thead><tbody>${rows.join("")}</tbody></table><p class='total'>Total: ${money(reservation.totalGTQ, "GTQ")} (${money(toUSD(reservation.totalGTQ), "USD")})</p></article>
+  popup.document.write(`<!doctype html><html lang='es'><head><meta charset='UTF-8'><title>Boletos ${escapeHtml(reservation.id)}</title>
+    <style>
+      body{font-family:Arial;margin:20px;color:#2f1c0c}
+      .ticket{border:2px solid #866137;border-radius:10px;padding:14px}
+      .head{display:flex;gap:12px;align-items:center;border-bottom:1px dashed #866137;padding-bottom:10px;margin-bottom:10px}
+      .head img{width:70px;height:70px}
+      h1{margin:0;font-size:26px}
+      p{margin:4px 0}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+      .field{border:1px solid #b6966f;border-radius:6px;padding:6px}
+      strong{display:block;font-size:11px;color:#6a4724}
+      table{width:100%;border-collapse:collapse;font-size:12px}
+      th,td{border:1px solid #b6966f;padding:6px;text-align:left}
+      th{background:#f1dcc1}
+      .total{margin-top:10px;font-size:14px;font-weight:700}
+      .foot{font-size:12px;color:#6a4724}
+      .page-break{page-break-after:always}
+      @media print{body{margin:0.5cm}.ticket{break-inside:avoid}.page-break{page-break-after:always}}
+    </style>
+    </head><body>
+    ${ticketPages}
     <script>window.addEventListener('load',function(){window.print();});</script></body></html>`);
   popup.document.close();
 }
