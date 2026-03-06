@@ -1,441 +1,496 @@
 ﻿"use strict";
 
 const EXCHANGE_RATE = 7.8;
-const SEAT_ROWS = ["A", "B", "C", "D", "E", "F", "G", "H"];
-const SEATS_PER_ROW = 10;
-const INITIAL_OCCUPIED_PER_MOVIE = 12;
-
-const STORAGE_KEYS = {
-  reservations: "lumicine.reservations",
-  seats: "lumicine.seats",
-  currency: "lumicine.currency",
-  theme: "lumicine.theme"
+const MAX_TICKETS = 5;
+const STORAGE = {
+  prefs: "lumicine.retro.prefs",
+  seats: "lumicine.retro.seats",
+  reservations: "lumicine.retro.reservations"
 };
 
-const movies = [
+const MOVIES = [
   {
     id: "reino-estrellas",
     title: "Reino de Estrellas",
-    schedule: "16:30",
     duration: "1h 45m",
     priceGTQ: 68,
-    poster: "assets/posters/reino-estrellas.svg"
+    poster: "assets/posters/reino-estrellas.svg",
+    showtimes: ["13:30", "16:30", "19:00", "21:15"],
+    tagline: "Fantasia musical para toda la familia"
   },
   {
     id: "aventura-aurora",
     title: "Aventura Aurora",
-    schedule: "18:45",
     duration: "2h 00m",
     priceGTQ: 75,
-    poster: "assets/posters/aventura-aurora.svg"
+    poster: "assets/posters/aventura-aurora.svg",
+    showtimes: ["14:00", "17:00", "19:30", "22:00"],
+    tagline: "Aventura clasica con colores retro"
   },
   {
     id: "guardianes-rio",
     title: "Guardianes del Rio",
-    schedule: "20:15",
     duration: "1h 58m",
     priceGTQ: 82,
-    poster: "assets/posters/guardianes-rio.svg"
+    poster: "assets/posters/guardianes-rio.svg",
+    showtimes: ["12:45", "15:30", "18:45", "21:30"],
+    tagline: "Leyendas del agua en gran formato"
   },
   {
     id: "festival-fantasia",
     title: "Festival Fantasia",
-    schedule: "21:50",
     duration: "2h 12m",
     priceGTQ: 90,
-    poster: "assets/posters/festival-fantasia.svg"
+    poster: "assets/posters/festival-fantasia.svg",
+    showtimes: ["13:15", "16:15", "19:15", "22:15"],
+    tagline: "Gran final musical estilo vintage"
   }
 ];
 
-const movieById = new Map(movies.map((movie) => [movie.id, movie]));
+const SEAT_LAYOUT = [
+  { row: "A", seats: [3, 4, 5, 6, 7, 8], aisleAfter: 3, inset: 34 },
+  { row: "B", seats: [2, 3, 4, 5, 6, 7, 8, 9], aisleAfter: 4, inset: 24 },
+  { row: "C", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], aisleAfter: 5, inset: 16 },
+  { row: "D", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], aisleAfter: 5, inset: 12 },
+  { row: "E", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], aisleAfter: 5, inset: 8 },
+  { row: "F", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], aisleAfter: 5, inset: 5 },
+  { row: "G", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], aisleAfter: 5, inset: 3 },
+  { row: "H", seats: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], aisleAfter: 5, inset: 0 }
+];
+
+const EXTRAS = [
+  { id: "poporopos", name: "Poporopos clasicos", priceGTQ: 25 },
+  { id: "bebida", name: "Bebida grande", priceGTQ: 18 },
+  { id: "nachos", name: "Nachos con queso", priceGTQ: 22 },
+  { id: "combo", name: "Combo retro", priceGTQ: 38 },
+  { id: "dulces", name: "Dulces de cine", priceGTQ: 14 }
+];
 
 const ui = {
+  movieSearch: document.getElementById("movieSearch"),
   currencySelect: document.getElementById("currencySelect"),
   themeToggle: document.getElementById("themeToggle"),
+  movieCount: document.getElementById("movieCount"),
   moviesGrid: document.getElementById("moviesGrid"),
   selectedMovieInfo: document.getElementById("selectedMovieInfo"),
+  showDate: document.getElementById("showDate"),
+  showTime: document.getElementById("showTime"),
   seatsContainer: document.getElementById("seatsContainer"),
+  extrasTableBody: document.getElementById("extrasTableBody"),
   selectedSeatsText: document.getElementById("selectedSeatsText"),
   ticketCountText: document.getElementById("ticketCountText"),
-  totalText: document.getElementById("totalText"),
+  ticketTotalText: document.getElementById("ticketTotalText"),
+  extrasTotalText: document.getElementById("extrasTotalText"),
+  grandTotalText: document.getElementById("grandTotalText"),
   payButton: document.getElementById("payButton"),
   clearSelectionButton: document.getElementById("clearSelectionButton"),
+  reservationsList: document.getElementById("reservationsList"),
   paymentModal: document.getElementById("paymentModal"),
   closePaymentModal: document.getElementById("closePaymentModal"),
   paymentSummary: document.getElementById("paymentSummary"),
   paymentForm: document.getElementById("paymentForm"),
-  cardHolder: document.getElementById("cardHolder"),
+  customerName: document.getElementById("customerName"),
   buyerEmail: document.getElementById("buyerEmail"),
+  paymentTypeRadios: document.querySelectorAll("input[name='paymentType']"),
+  cardFields: document.getElementById("cardFields"),
   cardNumber: document.getElementById("cardNumber"),
-  expiryDate: document.getElementById("expiryDate"),
+  cardExpiry: document.getElementById("cardExpiry"),
   cvv: document.getElementById("cvv"),
-  paymentMethod: document.getElementById("paymentMethod"),
+  transferFields: document.getElementById("transferFields"),
+  bankName: document.getElementById("bankName"),
+  voucherNumber: document.getElementById("voucherNumber"),
+  transferAmount: document.getElementById("transferAmount"),
+  cashFields: document.getElementById("cashFields"),
   termsCheck: document.getElementById("termsCheck"),
   paymentError: document.getElementById("paymentError"),
   confirmPaymentBtn: document.getElementById("confirmPaymentBtn"),
-  reservationsList: document.getElementById("reservationsList"),
+  invoiceModal: document.getElementById("invoiceModal"),
+  closeInvoiceModal: document.getElementById("closeInvoiceModal"),
+  invoiceContent: document.getElementById("invoiceContent"),
+  printInvoiceBtn: document.getElementById("printInvoiceBtn"),
+  downloadInvoicePdfBtn: document.getElementById("downloadInvoicePdfBtn"),
   toast: document.getElementById("toast")
 };
 
-let selectedMovieId = movies[0].id;
+const movieById = new Map(MOVIES.map((m) => [m.id, m]));
+const validSeatCodes = new Set(SEAT_LAYOUT.flatMap((l) => l.seats.map((n) => `${l.row}${n}`)));
+
+let searchQuery = "";
+let currency = "GTQ";
+let selectedMovieId = MOVIES[0].id;
+let selectedDate = todayISO();
+let selectedTime = MOVIES[0].showtimes[0];
 let selectedSeats = new Set();
-let seatAvailability = {};
+let extrasState = emptyExtras();
+let seatState = {};
 let reservations = [];
-let preferredCurrency = "GTQ";
-let paymentInProgress = false;
+let activeInvoiceId = null;
+let processingPayment = false;
 let toastTimer = null;
 
-bootstrap();
+init();
 
-function bootstrap() {
-  preferredCurrency = readStorage(STORAGE_KEYS.currency) === "USD" ? "USD" : "GTQ";
-  ui.currencySelect.value = preferredCurrency;
-
-  applyTheme(readStorage(STORAGE_KEYS.theme) === "dark" ? "dark" : "light");
-  hydrateSeatAvailability();
-  hydrateReservations();
-
-  renderMovies();
-  renderSelectedMovieInfo();
-  renderSeats();
-  updateSummary();
-  renderReservations();
-
+function init() {
+  loadState();
+  ui.currencySelect.value = currency;
+  ui.showDate.min = todayISO();
+  if (!selectedDate || selectedDate < todayISO()) {
+    selectedDate = todayISO();
+  }
+  ui.showDate.value = selectedDate;
+  applyTheme(readJson(STORAGE.prefs)?.theme === "retro-dark" ? "retro-dark" : "retro-light");
+  ensureMovieTime();
+  ensureSeatSet();
   bindEvents();
+  bindPaymentModalEvents();
+  renderAll();
 }
 
 function bindEvents() {
-  ui.currencySelect.addEventListener("change", () => {
-    preferredCurrency = ui.currencySelect.value === "USD" ? "USD" : "GTQ";
-    writeStorage(STORAGE_KEYS.currency, preferredCurrency);
-    renderMovies();
-    renderSelectedMovieInfo();
-    updateSummary();
-    renderReservations();
+  ui.themeToggle.addEventListener("click", () => {
+    const next = document.body.dataset.theme === "retro-dark" ? "retro-light" : "retro-dark";
+    applyTheme(next);
+    saveState();
   });
 
-  ui.themeToggle.addEventListener("click", () => {
-    const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
-    applyTheme(nextTheme);
+  ui.currencySelect.addEventListener("change", () => {
+    currency = ui.currencySelect.value === "USD" ? "USD" : "GTQ";
+    saveState();
+    renderAll();
+  });
+
+  ui.movieSearch.addEventListener("input", () => {
+    searchQuery = ui.movieSearch.value.trim().toLowerCase();
+    renderMovies();
   });
 
   ui.moviesGrid.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-action='select-movie']");
-    if (!button) {
-      return;
-    }
-
+    const button = event.target.closest("button[data-action='choose-movie']");
+    if (!button) return;
     const movieId = button.dataset.movieId;
-    if (!movieById.has(movieId)) {
-      return;
-    }
+    if (!movieById.has(movieId)) return;
+    selectedMovieId = movieId;
+    selectedSeats.clear();
+    extrasState = emptyExtras();
+    ensureMovieTime();
+    ensureSeatSet();
+    renderAll();
+  });
 
-    if (movieId !== selectedMovieId) {
-      selectedMovieId = movieId;
-      selectedSeats.clear();
-      renderMovies();
-      renderSelectedMovieInfo();
-      renderSeats();
-      updateSummary();
+  ui.showDate.addEventListener("change", () => {
+    const value = ui.showDate.value;
+    if (!value) return;
+    if (value < todayISO()) {
+      ui.showDate.value = todayISO();
+      selectedDate = todayISO();
+      toast("No puedes elegir fechas pasadas.", true);
+    } else {
+      selectedDate = value;
     }
+    selectedSeats.clear();
+    ensureSeatSet();
+    renderSelectedMovieInfo();
+    renderSeats();
+    renderSummary();
+  });
+
+  ui.showTime.addEventListener("change", () => {
+    if (!ui.showTime.value) return;
+    selectedTime = ui.showTime.value;
+    selectedSeats.clear();
+    ensureSeatSet();
+    renderSelectedMovieInfo();
+    renderSeats();
+    renderSummary();
   });
 
   ui.seatsContainer.addEventListener("click", (event) => {
     const seatButton = event.target.closest("button.seat");
-    if (!seatButton || seatButton.disabled) {
-      return;
-    }
-
-    const seatCode = seatButton.dataset.seat;
-    if (!isValidSeatCode(seatCode)) {
-      return;
-    }
-
-    if (selectedSeats.has(seatCode)) {
-      selectedSeats.delete(seatCode);
+    if (!seatButton || seatButton.disabled) return;
+    const code = seatButton.dataset.seat;
+    if (!validSeatCodes.has(code)) return;
+    if (selectedSeats.has(code)) {
+      selectedSeats.delete(code);
     } else {
-      selectedSeats.add(seatCode);
+      if (selectedSeats.size >= MAX_TICKETS) {
+        toast(`Limite: ${MAX_TICKETS} boletos por persona.`, true);
+        return;
+      }
+      selectedSeats.add(code);
     }
-
     renderSeats();
-    updateSummary();
+    renderSummary();
+  });
+
+  ui.extrasTableBody.addEventListener("change", (event) => {
+    const select = event.target.closest("select[data-extra-id]");
+    if (!select) return;
+    extrasState[select.dataset.extraId] = Number(select.value) || 0;
+    renderExtrasTable();
+    renderSummary();
   });
 
   ui.clearSelectionButton.addEventListener("click", () => {
     selectedSeats.clear();
+    extrasState = emptyExtras();
     renderSeats();
-    updateSummary();
+    renderExtrasTable();
+    renderSummary();
   });
 
-  ui.payButton.addEventListener("click", () => {
-    if (selectedSeats.size === 0) {
-      showToast("Selecciona al menos un asiento.", true);
-      return;
-    }
-
-    openPaymentModal();
-  });
-
-  ui.closePaymentModal.addEventListener("click", () => {
-    closePaymentModal(true);
-  });
-
-  ui.paymentModal.addEventListener("click", (event) => {
-    if (event.target === ui.paymentModal) {
-      closePaymentModal(true);
-    }
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !ui.paymentModal.classList.contains("hidden")) {
-      closePaymentModal(true);
-    }
-  });
-
-  setupPaymentInputGuards();
-  ui.paymentForm.addEventListener("submit", handlePaymentSubmit);
-
-  ui.reservationsList.addEventListener("click", handleReservationActions);
+  ui.payButton.addEventListener("click", openPaymentModal);
 }
 
-function setupPaymentInputGuards() {
-  ui.cardHolder.addEventListener("input", () => {
-    const cleaned = ui.cardHolder.value.replace(/[^A-Za-zÀ-ÿ' ]+/g, "").replace(/\s{2,}/g, " ");
-    ui.cardHolder.value = cleaned.slice(0, 60);
-    setFormError("");
-  });
-
-  ui.cardNumber.addEventListener("input", () => {
-    const digits = ui.cardNumber.value.replace(/\D/g, "").slice(0, 16);
-    ui.cardNumber.value = digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
-    setFormError("");
-  });
-
-  ui.expiryDate.addEventListener("input", () => {
-    const digits = ui.expiryDate.value.replace(/\D/g, "").slice(0, 4);
-    if (digits.length >= 3) {
-      ui.expiryDate.value = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    } else {
-      ui.expiryDate.value = digits;
-    }
-    setFormError("");
-  });
-
-  ui.cvv.addEventListener("input", () => {
-    ui.cvv.value = ui.cvv.value.replace(/\D/g, "").slice(0, 3);
-    setFormError("");
-  });
-
-  ui.buyerEmail.addEventListener("input", () => setFormError(""));
-  ui.paymentMethod.addEventListener("change", () => setFormError(""));
-  ui.termsCheck.addEventListener("change", () => setFormError(""));
+function renderAll() {
+  renderMovies();
+  renderTimeOptions();
+  renderSelectedMovieInfo();
+  renderSeats();
+  renderExtrasTable();
+  renderSummary();
+  renderReservations();
 }
 
 function renderMovies() {
-  ui.moviesGrid.innerHTML = movies
-    .map((movie, index) => {
-      const primaryPrice = preferredCurrency === "GTQ" ? formatCurrency(movie.priceGTQ, "GTQ") : formatCurrency(gtqToUsd(movie.priceGTQ), "USD");
-      const secondaryPrice = preferredCurrency === "GTQ" ? formatCurrency(gtqToUsd(movie.priceGTQ), "USD") : formatCurrency(movie.priceGTQ, "GTQ");
-      const activeClass = movie.id === selectedMovieId ? "active" : "";
-      const buttonLabel = movie.id === selectedMovieId ? "Seleccionada" : "Elegir pelicula";
+  const filtered = MOVIES.filter((movie) => !searchQuery || `${movie.title} ${movie.tagline}`.toLowerCase().includes(searchQuery));
+  ui.movieCount.textContent = `${filtered.length} de ${MOVIES.length} peliculas`;
+  if (filtered.length === 0) {
+    ui.moviesGrid.innerHTML = "<p class='empty-state'>No se encontraron peliculas.</p>";
+    return;
+  }
+  ui.moviesGrid.innerHTML = filtered.map((movie) => {
+    const active = movie.id === selectedMovieId ? "active" : "";
+    const p1 = currency === "GTQ" ? money(movie.priceGTQ, "GTQ") : money(toUSD(movie.priceGTQ), "USD");
+    const p2 = currency === "GTQ" ? money(toUSD(movie.priceGTQ), "USD") : money(movie.priceGTQ, "GTQ");
+    return `
+      <article class="movie-card ${active}">
+        <img src="${movie.poster}" alt="Poster ${escapeHtml(movie.title)}" />
+        <div class="movie-meta">
+          <h3>${escapeHtml(movie.title)}</h3>
+          <p>${movie.duration}</p>
+          <p>${escapeHtml(movie.tagline)}</p>
+          <div class="price-chip">${p1}<span>${p2}</span></div>
+          <button class="btn-select" type="button" data-action="choose-movie" data-movie-id="${movie.id}">${movie.id === selectedMovieId ? "Seleccionada" : "Elegir"}</button>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
 
-      return `
-        <article class="movie-card ${activeClass}" style="animation-delay:${index * 60}ms;">
-          <img src="${movie.poster}" alt="Poster de ${escapeHtml(movie.title)}" />
-          <div class="movie-meta">
-            <h3>${escapeHtml(movie.title)}</h3>
-            <p>Horario: ${movie.schedule}</p>
-            <p>Duracion: ${movie.duration}</p>
-            <div class="price-chip">${primaryPrice}<span>${secondaryPrice}</span></div>
-            <button class="btn-select" type="button" data-action="select-movie" data-movie-id="${movie.id}">${buttonLabel}</button>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
+function renderTimeOptions() {
+  const movie = movieById.get(selectedMovieId);
+  if (!movie) return;
+  if (!movie.showtimes.includes(selectedTime)) selectedTime = movie.showtimes[0];
+  ui.showTime.innerHTML = movie.showtimes.map((time) => `<option value="${time}" ${time === selectedTime ? "selected" : ""}>${time}</option>`).join("");
+  ui.showTime.value = selectedTime;
 }
 
 function renderSelectedMovieInfo() {
   const movie = movieById.get(selectedMovieId);
   if (!movie) {
-    ui.selectedMovieInfo.innerHTML = "<p>Selecciona una pelicula para comenzar.</p>";
+    ui.selectedMovieInfo.innerHTML = "<p>Selecciona una pelicula.</p>";
     return;
   }
-
-  const priceText = `${formatCurrency(movie.priceGTQ, "GTQ")} | ${formatCurrency(gtqToUsd(movie.priceGTQ), "USD")}`;
   ui.selectedMovieInfo.innerHTML = `
-    <img src="${movie.poster}" alt="Poster de ${escapeHtml(movie.title)}" />
+    <img src="${movie.poster}" alt="Poster ${escapeHtml(movie.title)}" />
     <div>
       <h3>${escapeHtml(movie.title)}</h3>
-      <p>Horario: ${movie.schedule} | Precio por boleto: ${priceText}</p>
+      <p>Funcion: ${dateNice(selectedDate)} ${selectedTime}</p>
+      <p>Precio por boleto: ${money(movie.priceGTQ, "GTQ")} | ${money(toUSD(movie.priceGTQ), "USD")}</p>
+      <p>Horarios: ${movie.showtimes.join(" | ")}</p>
     </div>
   `;
 }
-
 function renderSeats() {
-  const movie = movieById.get(selectedMovieId);
-  if (!movie) {
-    ui.seatsContainer.innerHTML = "";
-    return;
-  }
-
-  const occupiedSet = seatAvailability[selectedMovieId] || new Set();
-  const rowHtml = SEAT_ROWS.map((row) => {
-    const seatButtons = [];
-
-    for (let seatNumber = 1; seatNumber <= SEATS_PER_ROW; seatNumber += 1) {
-      const seatCode = `${row}${seatNumber}`;
-      const isOccupied = occupiedSet.has(seatCode);
-      const isSelected = selectedSeats.has(seatCode);
-      const statusClass = isOccupied ? "occupied" : isSelected ? "selected" : "available";
-      const gapClass = seatNumber === 6 ? "aisle-gap" : "";
-      const disabledAttr = isOccupied ? "disabled" : "";
-
-      seatButtons.push(
-        `<button type="button" class="seat ${statusClass} ${gapClass}" data-seat="${seatCode}" ${disabledAttr} title="Asiento ${seatCode}">${seatNumber}</button>`
-      );
-    }
+  ensureSeatSet();
+  const occupied = seatState[currentShowKey()] || new Set();
+  ui.seatsContainer.innerHTML = SEAT_LAYOUT.map((layout) => {
+    const seatsHtml = layout.seats.map((seatNumber, index) => {
+      const code = `${layout.row}${seatNumber}`;
+      const isOccupied = occupied.has(code);
+      const isSelected = selectedSeats.has(code);
+      const status = isOccupied ? "occupied" : isSelected ? "selected" : "available";
+      const gap = index === layout.aisleAfter ? "aisle-gap" : "";
+      return `<button type="button" class="seat ${status} ${gap}" data-seat="${code}" ${isOccupied ? "disabled" : ""}>${seatNumber}</button>`;
+    }).join("");
 
     return `
-      <div class="seat-row">
-        <span class="row-label">${row}</span>
-        <div class="row-seats">${seatButtons.join("")}</div>
+      <div class="seat-row" style="padding-inline:${layout.inset}px;">
+        <span class="row-label">${layout.row}</span>
+        <div class="row-seats">${seatsHtml}</div>
+        <span class="row-label">${layout.row}</span>
       </div>
     `;
   }).join("");
-
-  ui.seatsContainer.innerHTML = rowHtml;
 }
 
-function updateSummary() {
-  const movie = movieById.get(selectedMovieId);
-  const selectedList = sortSeatCodes(Array.from(selectedSeats));
-  const ticketCount = selectedList.length;
+function renderExtrasTable() {
+  ui.extrasTableBody.innerHTML = EXTRAS.map((item) => {
+    const qty = extrasState[item.id] || 0;
+    return `
+      <tr>
+        <td>${escapeHtml(item.name)}</td>
+        <td>${money(item.priceGTQ, "GTQ")}</td>
+        <td>
+          <select class="quantity-select" data-extra-id="${item.id}">${qtyOptions(qty)}</select>
+        </td>
+        <td>${money(qty * item.priceGTQ, "GTQ")}</td>
+      </tr>
+    `;
+  }).join("");
+}
 
-  ui.selectedSeatsText.textContent = `Asientos: ${ticketCount > 0 ? selectedList.join(", ") : "ninguno"}`;
-  ui.ticketCountText.textContent = `Boletos: ${ticketCount}`;
-
-  if (!movie) {
-    ui.totalText.textContent = "Total: Q0.00";
-    ui.payButton.disabled = true;
-    ui.clearSelectionButton.disabled = true;
-    return;
-  }
-
-  const totalGTQ = ticketCount * movie.priceGTQ;
-  const primary = preferredCurrency === "GTQ" ? formatCurrency(totalGTQ, "GTQ") : formatCurrency(gtqToUsd(totalGTQ), "USD");
-  const secondary = preferredCurrency === "GTQ" ? formatCurrency(gtqToUsd(totalGTQ), "USD") : formatCurrency(totalGTQ, "GTQ");
-
-  ui.totalText.textContent = `Total (${preferredCurrency}): ${primary} | ${secondary}`;
-  ui.payButton.disabled = ticketCount === 0;
-  ui.clearSelectionButton.disabled = ticketCount === 0;
+function renderSummary() {
+  const totals = totalsNow();
+  const seats = sortSeats(Array.from(selectedSeats));
+  ui.selectedSeatsText.textContent = `Asientos: ${seats.length ? seats.join(", ") : "ninguno"}`;
+  ui.ticketCountText.textContent = `Boletos: ${seats.length} / ${MAX_TICKETS}`;
+  ui.ticketTotalText.textContent = `Boletos total: ${moneyByCurrency(totals.ticketsGTQ)}`;
+  ui.extrasTotalText.textContent = `Acompanamientos: ${moneyByCurrency(totals.extrasGTQ)}`;
+  ui.grandTotalText.textContent = `Total final: ${moneyByCurrency(totals.totalGTQ)}`;
+  ui.payButton.disabled = seats.length === 0;
+  ui.clearSelectionButton.disabled = seats.length === 0 && totals.extrasGTQ === 0;
 }
 
 function openPaymentModal() {
-  const movie = movieById.get(selectedMovieId);
-  const seats = sortSeatCodes(Array.from(selectedSeats));
-  if (!movie || seats.length === 0) {
-    showToast("Selecciona pelicula y asientos para pagar.", true);
+  if (selectedSeats.size === 0) {
+    toast("Selecciona asientos primero.", true);
     return;
   }
 
-  const totalGTQ = seats.length * movie.priceGTQ;
-  const totalText = `${formatCurrency(totalGTQ, "GTQ")} | ${formatCurrency(gtqToUsd(totalGTQ), "USD")}`;
-  ui.paymentSummary.textContent = `${movie.title} - ${movie.schedule} | Asientos: ${seats.join(", ")} | Total: ${totalText}`;
+  const movie = movieById.get(selectedMovieId);
+  const totals = totalsNow();
+  const extras = selectedExtras();
+  const extrasText = extras.length ? extras.map((x) => `${x.name} x${x.qty}`).join(", ") : "Sin extras";
+
+  ui.paymentSummary.textContent = `${movie.title} | ${dateNice(selectedDate)} ${selectedTime} | Asientos ${sortSeats(Array.from(selectedSeats)).join(", ")} | Extras: ${extrasText} | Total: ${money(totals.totalGTQ, "GTQ")}`;
+  ui.transferAmount.value = totals.totalGTQ.toFixed(2);
 
   ui.paymentModal.classList.remove("hidden");
   ui.paymentModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
-  ui.cardHolder.focus();
+
+  resetPaymentFormUI();
+  bindPaymentModalEvents();
+  togglePaymentGroups();
+  ui.customerName.focus();
 }
 
-function closePaymentModal(resetForm) {
-  if (paymentInProgress) {
-    return;
-  }
+function bindPaymentModalEvents() {
+  if (ui.paymentModal.dataset.bound === "1") return;
+  ui.paymentModal.dataset.bound = "1";
 
-  ui.paymentModal.classList.add("hidden");
-  ui.paymentModal.setAttribute("aria-hidden", "true");
-  document.body.style.overflow = "";
+  ui.closePaymentModal.addEventListener("click", () => closePaymentModal(true));
+  ui.paymentModal.addEventListener("click", (event) => {
+    if (event.target === ui.paymentModal) closePaymentModal(true);
+  });
 
-  if (resetForm) {
-    resetPaymentForm();
-  }
-}
+  ui.paymentTypeRadios.forEach((radio) => {
+    radio.addEventListener("change", () => {
+      togglePaymentGroups();
+      formError("");
+    });
+  });
 
-function resetPaymentForm() {
-  ui.paymentForm.reset();
-  ui.confirmPaymentBtn.disabled = false;
-  ui.confirmPaymentBtn.textContent = "Pagar ahora";
-  setFormError("");
+  ui.customerName.addEventListener("input", () => {
+    ui.customerName.value = ui.customerName.value.replace(/[^A-Za-zÀ-ÿ' ]+/g, "").replace(/\s{2,}/g, " ");
+    formError("");
+  });
+
+  ui.cardNumber.addEventListener("input", () => {
+    const digits = ui.cardNumber.value.replace(/\D/g, "").slice(0, 16);
+    ui.cardNumber.value = digits.replace(/(\d{4})(?=\d)/g, "$1 ");
+    formError("");
+  });
+
+  ui.cvv.addEventListener("input", () => {
+    ui.cvv.value = ui.cvv.value.replace(/\D/g, "").slice(0, 3);
+    formError("");
+  });
+
+  ui.voucherNumber.addEventListener("input", () => {
+    ui.voucherNumber.value = ui.voucherNumber.value.replace(/[^A-Za-z0-9-]/g, "").slice(0, 25);
+    formError("");
+  });
+
+  ui.paymentForm.addEventListener("submit", handlePaymentSubmit);
+
+  ui.closeInvoiceModal.addEventListener("click", closeInvoiceModal);
+  ui.invoiceModal.addEventListener("click", (event) => {
+    if (event.target === ui.invoiceModal) closeInvoiceModal();
+  });
+
+  ui.printInvoiceBtn.addEventListener("click", () => activeInvoiceId && printInvoice(activeInvoiceId));
+  ui.downloadInvoicePdfBtn.addEventListener("click", () => activeInvoiceId && printInvoice(activeInvoiceId));
+
+  ui.reservationsList.addEventListener("click", handleReservationActions);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (!ui.paymentModal.classList.contains("hidden")) closePaymentModal(true);
+    if (!ui.invoiceModal.classList.contains("hidden")) closeInvoiceModal();
+  });
 }
 
 function handlePaymentSubmit(event) {
   event.preventDefault();
-
-  if (paymentInProgress) {
-    return;
-  }
+  if (processingPayment) return;
 
   const errors = validatePayment();
-  if (errors.length > 0) {
-    setFormError(errors[0]);
+  if (errors.length) {
+    formError(errors[0]);
     return;
   }
 
-  setFormError("");
-  paymentInProgress = true;
+  processingPayment = true;
   ui.confirmPaymentBtn.disabled = true;
-  ui.confirmPaymentBtn.textContent = "Procesando pago...";
+  ui.confirmPaymentBtn.textContent = "Procesando...";
 
   window.setTimeout(() => {
-    paymentInProgress = false;
+    processingPayment = false;
     ui.confirmPaymentBtn.disabled = false;
-    ui.confirmPaymentBtn.textContent = "Pagar ahora";
-    finalizeReservation();
-  }, 900);
+    ui.confirmPaymentBtn.textContent = "Confirmar pago";
+    createReservation();
+  }, 850);
 }
 
 function validatePayment() {
   const errors = [];
-  const holder = ui.cardHolder.value.trim();
-  const email = ui.buyerEmail.value.trim();
-  const cardDigits = ui.cardNumber.value.replace(/\s/g, "");
-  const expiry = ui.expiryDate.value.trim();
-  const cvv = ui.cvv.value.trim();
+  const type = paymentType();
+  const totals = totalsNow();
 
-  if (!/^[A-Za-zÀ-ÿ' ]{3,60}$/.test(holder)) {
-    errors.push("Ingresa un nombre de titular valido.");
+  if (!/^[A-Za-zÀ-ÿ' ]{3,60}$/.test(ui.customerName.value.trim())) {
+    errors.push("El nombre solo permite letras y espacios.");
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
-    errors.push("Ingresa un correo valido.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(ui.buyerEmail.value.trim())) {
+    errors.push("Correo invalido.");
   }
 
-  if (!/^\d{16}$/.test(cardDigits) || !passesLuhn(cardDigits)) {
-    errors.push("Numero de tarjeta invalido.");
+  if (selectedSeats.size === 0 || selectedSeats.size > MAX_TICKETS) {
+    errors.push(`Debes elegir entre 1 y ${MAX_TICKETS} asientos.`);
   }
 
-  if (!isValidExpiry(expiry)) {
-    errors.push("Fecha de vencimiento invalida.");
+  if (type === "Tarjeta") {
+    const digits = ui.cardNumber.value.replace(/\s/g, "");
+    if (!/^\d{16}$/.test(digits) || !luhn(digits)) errors.push("Numero de tarjeta invalido.");
+    if (!validMonth(ui.cardExpiry.value)) errors.push("Vencimiento invalido.");
+    if (!/^\d{3}$/.test(ui.cvv.value.trim())) errors.push("CVV invalido.");
   }
 
-  if (!/^\d{3}$/.test(cvv)) {
-    errors.push("CVV invalido.");
+  if (type === "Transferencia") {
+    if (!ui.bankName.value) errors.push("Selecciona un banco.");
+    if (!/^[A-Za-z0-9-]{6,25}$/.test(ui.voucherNumber.value.trim())) errors.push("No. de boleta invalido.");
+    const amount = Number(ui.transferAmount.value);
+    if (!Number.isFinite(amount) || amount < totals.totalGTQ) errors.push("Monto transferido insuficiente.");
   }
 
-  if (!ui.paymentMethod.value) {
-    errors.push("Selecciona un metodo de pago.");
-  }
+  if (!ui.termsCheck.checked) errors.push("Debes confirmar los datos.");
 
-  if (!ui.termsCheck.checked) {
-    errors.push("Debes confirmar que los datos son correctos.");
-  }
-
-  const occupiedSet = seatAvailability[selectedMovieId] || new Set();
-  for (const seat of selectedSeats) {
-    if (occupiedSet.has(seat)) {
-      errors.push("Uno o mas asientos ya no estan disponibles.");
+  const occupied = seatState[currentShowKey()] || new Set();
+  for (const code of selectedSeats) {
+    if (occupied.has(code)) {
+      errors.push("Un asiento ya no esta disponible.");
       break;
     }
   }
@@ -443,459 +498,373 @@ function validatePayment() {
   return errors;
 }
 
-function finalizeReservation() {
+function createReservation() {
   const movie = movieById.get(selectedMovieId);
-  const seats = sortSeatCodes(Array.from(selectedSeats));
+  const seats = sortSeats(Array.from(selectedSeats));
+  const totals = totalsNow();
+  const extras = selectedExtras();
+  const type = paymentType();
 
-  if (!movie || seats.length === 0) {
-    showToast("No hay asientos seleccionados para reservar.", true);
-    closePaymentModal(true);
-    return;
-  }
-
-  const totalGTQ = seats.length * movie.priceGTQ;
   const reservation = {
-    id: buildReservationId(),
+    id: `R-${Date.now().toString().slice(-8)}-${Math.floor(Math.random() * 900 + 100)}`,
     movieId: movie.id,
+    showDate: selectedDate,
+    showTime: selectedTime,
+    showKey: currentShowKey(),
     seats,
-    quantity: seats.length,
-    totalGTQ,
-    cardHolder: sanitizeText(ui.cardHolder.value, 60),
-    email: sanitizeText(ui.buyerEmail.value, 80),
-    paymentMethod: sanitizeText(ui.paymentMethod.value, 40),
+    ticketCount: seats.length,
+    ticketPriceGTQ: movie.priceGTQ,
+    ticketTotalGTQ: totals.ticketsGTQ,
+    extras,
+    extrasTotalGTQ: totals.extrasGTQ,
+    totalGTQ: totals.totalGTQ,
+    customerName: cleanText(ui.customerName.value, 60),
+    email: cleanText(ui.buyerEmail.value, 80),
+    paymentType: type,
+    paymentDetails: paymentDetails(type),
     createdAt: new Date().toISOString()
   };
 
   reservations.unshift(reservation);
-
-  if (!seatAvailability[selectedMovieId]) {
-    seatAvailability[selectedMovieId] = new Set();
-  }
-
-  for (const seat of seats) {
-    seatAvailability[selectedMovieId].add(seat);
-  }
+  if (!seatState[reservation.showKey]) seatState[reservation.showKey] = new Set();
+  seats.forEach((s) => seatState[reservation.showKey].add(s));
 
   selectedSeats.clear();
+  extrasState = emptyExtras();
+  saveState();
 
-  persistState();
-  renderSeats();
-  updateSummary();
-  renderReservations();
   closePaymentModal(true);
-
-  showToast("Reserva confirmada. Tu boleto PDF se descargo.");
-  downloadTicketPdf(reservation);
+  renderSeats();
+  renderExtrasTable();
+  renderSummary();
+  renderReservations();
+  openInvoice(reservation.id);
+  toast("Reserva confirmada. Factura lista.");
 }
-
 function renderReservations() {
-  if (reservations.length === 0) {
+  if (!reservations.length) {
     ui.reservationsList.innerHTML = "<p class='empty-state'>Aun no tienes reservas activas.</p>";
     return;
   }
 
-  ui.reservationsList.innerHTML = reservations
-    .map((reservation) => {
-      const movie = movieById.get(reservation.movieId);
-      if (!movie) {
-        return "";
-      }
-
-      const totalPrimary = preferredCurrency === "GTQ" ? formatCurrency(reservation.totalGTQ, "GTQ") : formatCurrency(gtqToUsd(reservation.totalGTQ), "USD");
-      const totalSecondary = preferredCurrency === "GTQ" ? formatCurrency(gtqToUsd(reservation.totalGTQ), "USD") : formatCurrency(reservation.totalGTQ, "GTQ");
-
-      return `
-        <article class="reservation-item">
-          <img src="${movie.poster}" alt="Poster de ${escapeHtml(movie.title)}" />
-          <div>
-            <h4>${escapeHtml(movie.title)} - ${movie.schedule}</h4>
-            <p>Codigo: ${escapeHtml(reservation.id)}</p>
-            <p>Asientos: ${escapeHtml(reservation.seats.join(", "))} | Boletos: ${reservation.quantity}</p>
-            <p>Total: ${totalPrimary} | ${totalSecondary}</p>
-            <p>Cliente: ${escapeHtml(reservation.cardHolder)} | ${escapeHtml(reservation.email)}</p>
-            <p>Metodo: ${escapeHtml(reservation.paymentMethod)} | Fecha: ${formatDate(reservation.createdAt)}</p>
-          </div>
-          <div class="reservation-actions">
-            <button type="button" class="btn-secondary" data-action="pdf" data-id="${escapeHtml(reservation.id)}">Boleto PDF</button>
-            <button type="button" class="btn-danger" data-action="cancel" data-id="${escapeHtml(reservation.id)}">Cancelar</button>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
+  ui.reservationsList.innerHTML = reservations.map((r) => {
+    const movie = movieById.get(r.movieId);
+    return `
+      <article class="reservation-item">
+        <img src="${movie ? movie.poster : "assets/logo-lumicine.svg"}" alt="Poster" />
+        <div>
+          <h4>${movie ? escapeHtml(movie.title) : "Pelicula"} | ${dateNice(r.showDate)} ${r.showTime}</h4>
+          <p>Reserva: ${escapeHtml(r.id)} | Cliente: ${escapeHtml(r.customerName)}</p>
+          <p>Asientos: ${escapeHtml(r.seats.join(", "))} | Boletos: ${r.ticketCount}</p>
+          <p>Pago: ${escapeHtml(r.paymentType)} | Total: ${money(r.totalGTQ, "GTQ")}</p>
+          <p>Creada: ${dateTimeNice(r.createdAt)}</p>
+        </div>
+        <div class="reservation-actions">
+          <button type="button" class="btn-secondary" data-action="invoice" data-id="${escapeHtml(r.id)}">Factura</button>
+          <button type="button" class="btn-primary" data-action="pdf" data-id="${escapeHtml(r.id)}">PDF</button>
+          <button type="button" class="btn-danger" data-action="cancel" data-id="${escapeHtml(r.id)}">Cancelar</button>
+        </div>
+      </article>
+    `;
+  }).join("");
 }
 
 function handleReservationActions(event) {
-  const actionButton = event.target.closest("button[data-action]");
-  if (!actionButton) {
-    return;
-  }
-
-  const action = actionButton.dataset.action;
-  const reservationId = actionButton.dataset.id;
-  const reservation = reservations.find((item) => item.id === reservationId);
-  if (!reservation) {
-    return;
-  }
-
-  if (action === "pdf") {
-    downloadTicketPdf(reservation);
-    return;
-  }
-
-  if (action === "cancel") {
-    cancelReservation(reservation.id);
-  }
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const id = button.dataset.id;
+  const action = button.dataset.action;
+  if (action === "invoice") return openInvoice(id);
+  if (action === "pdf") return printInvoice(id);
+  if (action === "cancel") return cancelReservation(id);
 }
 
-function cancelReservation(reservationId) {
-  const reservationIndex = reservations.findIndex((item) => item.id === reservationId);
-  if (reservationIndex === -1) {
-    return;
-  }
-
-  const reservation = reservations[reservationIndex];
-  const confirmed = window.confirm(`Cancelar la reserva ${reservation.id}?`);
-  if (!confirmed) {
-    return;
-  }
-
-  const occupiedSet = seatAvailability[reservation.movieId] || new Set();
-  for (const seat of reservation.seats) {
-    occupiedSet.delete(seat);
-  }
-  seatAvailability[reservation.movieId] = occupiedSet;
-
-  reservations.splice(reservationIndex, 1);
-
-  persistState();
-  if (selectedMovieId === reservation.movieId) {
-    renderSeats();
-    updateSummary();
-  }
-  renderReservations();
-
-  showToast("Reserva cancelada. Asientos liberados.");
+function openInvoice(reservationId) {
+  const reservation = reservations.find((x) => x.id === reservationId);
+  if (!reservation) return;
+  activeInvoiceId = reservation.id;
+  drawInvoice(reservation);
+  ui.invoiceModal.classList.remove("hidden");
+  ui.invoiceModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
 }
 
-function downloadTicketPdf(reservation) {
-  const blob = createTicketPdfBlob(reservation);
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  const safeId = reservation.id.replace(/[^A-Za-z0-9_-]/g, "");
-
-  anchor.href = url;
-  anchor.download = `boleto-${safeId || "cine"}.pdf`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-
-  window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+function closeInvoiceModal() {
+  activeInvoiceId = null;
+  ui.invoiceModal.classList.add("hidden");
+  ui.invoiceModal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
 }
 
-function createTicketPdfBlob(reservation) {
+function drawInvoice(reservation) {
   const movie = movieById.get(reservation.movieId);
-  const lines = [
-    "LumiCine Magic - Boleto Oficial",
-    `Codigo: ${reservation.id}`,
-    `Pelicula: ${movie ? movie.title : "N/A"}`,
-    `Horario: ${movie ? movie.schedule : "N/A"}`,
-    `Asientos: ${reservation.seats.join(", ")}`,
-    `Boletos: ${reservation.quantity}`,
-    `Total GTQ: ${formatCurrency(reservation.totalGTQ, "GTQ")}`,
-    `Total USD: ${formatCurrency(gtqToUsd(reservation.totalGTQ), "USD")}`,
-    `Cliente: ${reservation.cardHolder}`,
-    `Correo: ${reservation.email}`,
-    `Pago: ${reservation.paymentMethod}`,
-    `Fecha: ${new Date(reservation.createdAt).toLocaleString("es-GT")}`,
-    "Gracias por tu compra."
+  const rows = [
+    `<tr><td>Boleto ${escapeHtml(movie.title)}</td><td>${reservation.ticketCount}</td><td>${money(reservation.ticketPriceGTQ, "GTQ")}</td><td>${money(reservation.ticketTotalGTQ, "GTQ")}</td></tr>`
   ];
 
-  const streamContent = buildPdfTextStream(lines);
-
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Count 1 /Kids [3 0 R] >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
-    `<< /Length ${byteLength(streamContent)} >>\nstream\n${streamContent}\nendstream`,
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
-  ];
-
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-
-  for (let index = 0; index < objects.length; index += 1) {
-    offsets.push(byteLength(pdf));
-    pdf += `${index + 1} 0 obj\n${objects[index]}\nendobj\n`;
+  if (reservation.extras.length) {
+    reservation.extras.forEach((e) => rows.push(`<tr><td>${escapeHtml(e.name)}</td><td>${e.qty}</td><td>${money(e.priceGTQ, "GTQ")}</td><td>${money(e.totalGTQ, "GTQ")}</td></tr>`));
+  } else {
+    rows.push("<tr><td colspan='4'>Sin acompanamientos</td></tr>");
   }
 
-  const xrefStart = byteLength(pdf);
-  pdf += `xref\n0 ${objects.length + 1}\n`;
-  pdf += "0000000000 65535 f \n";
+  ui.invoiceContent.innerHTML = `
+    <article class="invoice-box">
+      <header class="invoice-header">
+        <img src="assets/logo-lumicine.svg" class="invoice-logo" alt="Logo LumiCine Retro" />
+        <div>
+          <h4>Factura LumiCine Retro</h4>
+          <p>Reserva ${escapeHtml(reservation.id)} | ${dateTimeNice(reservation.createdAt)}</p>
+        </div>
+      </header>
 
-  for (let i = 1; i < offsets.length; i += 1) {
-    pdf += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
-  }
+      <section class="invoice-grid">
+        <div class="invoice-field"><strong>Cliente</strong><span>${escapeHtml(reservation.customerName)}</span></div>
+        <div class="invoice-field"><strong>Correo</strong><span>${escapeHtml(reservation.email)}</span></div>
+        <div class="invoice-field"><strong>Pelicula</strong><span>${escapeHtml(movie.title)}</span></div>
+        <div class="invoice-field"><strong>Funcion</strong><span>${dateNice(reservation.showDate)} ${reservation.showTime}</span></div>
+        <div class="invoice-field"><strong>Asientos</strong><span>${escapeHtml(reservation.seats.join(", "))}</span></div>
+        <div class="invoice-field"><strong>Pago</strong><span>${escapeHtml(paymentLabel(reservation))}</span></div>
+      </section>
 
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefStart}\n%%EOF`;
+      <table class="invoice-table">
+        <thead>
+          <tr>
+            <th>Concepto</th>
+            <th>Cantidad</th>
+            <th>Precio unitario</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>${rows.join("")}</tbody>
+      </table>
 
-  return new Blob([pdf], { type: "application/pdf" });
+      <p class="invoice-total">Total: ${money(reservation.totalGTQ, "GTQ")} (${money(toUSD(reservation.totalGTQ), "USD")})</p>
+    </article>
+  `;
 }
 
-function buildPdfTextStream(lines) {
-  const textLines = ["BT", "/F1 17 Tf", "50 760 Td", `(${escapePdfText(toPdfAscii(lines[0]))}) Tj`, "/F1 12 Tf"];
+function printInvoice(id) {
+  const reservation = reservations.find((r) => r.id === id);
+  const movie = reservation ? movieById.get(reservation.movieId) : null;
+  if (!reservation || !movie) return toast("No se pudo generar PDF.", true);
 
-  for (let index = 1; index < lines.length; index += 1) {
-    textLines.push(`0 -22 Td (${escapePdfText(toPdfAscii(lines[index]))}) Tj`);
-  }
+  const logoUrl = new URL("assets/logo-lumicine.svg", window.location.href).href;
+  const rows = [`<tr><td>Boleto ${escapeHtml(movie.title)}</td><td>${reservation.ticketCount}</td><td>${money(reservation.ticketPriceGTQ, "GTQ")}</td><td>${money(reservation.ticketTotalGTQ, "GTQ")}</td></tr>`];
+  if (reservation.extras.length) reservation.extras.forEach((e) => rows.push(`<tr><td>${escapeHtml(e.name)}</td><td>${e.qty}</td><td>${money(e.priceGTQ, "GTQ")}</td><td>${money(e.totalGTQ, "GTQ")}</td></tr>`));
+  else rows.push("<tr><td colspan='4'>Sin acompanamientos</td></tr>");
 
-  textLines.push("ET");
-  return textLines.join("\n");
+  const popup = window.open("", "_blank", "width=900,height=760");
+  if (!popup) return toast("Habilita ventanas emergentes para PDF.", true);
+
+  popup.document.write(`<!doctype html><html lang='es'><head><meta charset='UTF-8'><title>Factura ${escapeHtml(reservation.id)}</title>
+    <style>body{font-family:Arial;margin:20px;color:#2f1c0c}.box{border:2px solid #866137;border-radius:10px;padding:14px}.head{display:flex;gap:12px;align-items:center;border-bottom:1px dashed #866137;padding-bottom:10px;margin-bottom:10px}.head img{width:70px;height:70px}h1{margin:0;font-size:26px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.field{border:1px solid #b6966f;border-radius:6px;padding:6px}strong{display:block;font-size:11px;color:#6a4724}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #b6966f;padding:6px;text-align:left}th{background:#f1dcc1}.total{margin-top:10px;font-size:14px;font-weight:700}</style></head><body>
+    <article class='box'><header class='head'><img src='${logoUrl}' alt='logo'><div><h1>Factura LumiCine Retro</h1><p>Reserva ${escapeHtml(reservation.id)} | ${dateTimeNice(reservation.createdAt)}</p></div></header>
+    <section class='grid'><div class='field'><strong>Cliente</strong>${escapeHtml(reservation.customerName)}</div><div class='field'><strong>Correo</strong>${escapeHtml(reservation.email)}</div><div class='field'><strong>Pelicula</strong>${escapeHtml(movie.title)}</div><div class='field'><strong>Funcion</strong>${dateNice(reservation.showDate)} ${reservation.showTime}</div><div class='field'><strong>Asientos</strong>${escapeHtml(reservation.seats.join(", "))}</div><div class='field'><strong>Pago</strong>${escapeHtml(paymentLabel(reservation))}</div></section>
+    <table><thead><tr><th>Concepto</th><th>Cantidad</th><th>Precio unitario</th><th>Subtotal</th></tr></thead><tbody>${rows.join("")}</tbody></table><p class='total'>Total: ${money(reservation.totalGTQ, "GTQ")} (${money(toUSD(reservation.totalGTQ), "USD")})</p></article>
+    <script>window.addEventListener('load',function(){window.print();});</script></body></html>`);
+  popup.document.close();
 }
 
-function applyTheme(theme) {
-  const safeTheme = theme === "dark" ? "dark" : "light";
-  document.body.dataset.theme = safeTheme;
-  ui.themeToggle.textContent = safeTheme === "dark" ? "Modo claro" : "Modo oscuro";
-  ui.themeToggle.setAttribute("aria-pressed", String(safeTheme === "dark"));
-  writeStorage(STORAGE_KEYS.theme, safeTheme);
+function cancelReservation(id) {
+  const index = reservations.findIndex((r) => r.id === id);
+  if (index === -1) return;
+  const reservation = reservations[index];
+  if (!window.confirm(`Cancelar reserva ${reservation.id}?`)) return;
+  if (seatState[reservation.showKey]) reservation.seats.forEach((s) => seatState[reservation.showKey].delete(s));
+  reservations.splice(index, 1);
+  saveState();
+  renderReservations();
+  if (reservation.showKey === currentShowKey()) {
+    renderSeats();
+    renderSummary();
+  }
+  if (activeInvoiceId === reservation.id) closeInvoiceModal();
+  toast("Reserva cancelada y asientos liberados.");
 }
 
-function hydrateSeatAvailability() {
-  const parsed = safeParseJson(readStorage(STORAGE_KEYS.seats));
-
-  if (!parsed || typeof parsed !== "object") {
-    initializeSeatAvailability();
-    return;
-  }
-
-  for (const movie of movies) {
-    if (Array.isArray(parsed[movie.id])) {
-      const validSeats = parsed[movie.id].filter((seat) => isValidSeatCode(seat));
-      seatAvailability[movie.id] = new Set(validSeats);
-    } else {
-      seatAvailability[movie.id] = buildRandomOccupiedSeats();
-    }
-  }
+function closePaymentModal(reset) {
+  if (processingPayment) return;
+  ui.paymentModal.classList.add("hidden");
+  ui.paymentModal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+  if (!reset) return;
+  resetPaymentFormUI();
 }
 
-function initializeSeatAvailability() {
-  seatAvailability = {};
-  for (const movie of movies) {
-    seatAvailability[movie.id] = buildRandomOccupiedSeats();
-  }
+function resetPaymentFormUI() {
+  ui.paymentForm.reset();
+  ui.paymentError.textContent = "";
+  ui.confirmPaymentBtn.textContent = "Confirmar pago";
+  ui.confirmPaymentBtn.disabled = false;
+  if (ui.paymentTypeRadios[0]) ui.paymentTypeRadios[0].checked = true;
+  togglePaymentGroups();
 }
 
-function buildRandomOccupiedSeats() {
-  const occupied = new Set();
-  while (occupied.size < INITIAL_OCCUPIED_PER_MOVIE) {
-    const row = SEAT_ROWS[Math.floor(Math.random() * SEAT_ROWS.length)];
-    const seatNumber = 1 + Math.floor(Math.random() * SEATS_PER_ROW);
-    occupied.add(`${row}${seatNumber}`);
-  }
-  return occupied;
+function togglePaymentGroups() {
+  const type = paymentType();
+  ui.cardFields.classList.toggle("hidden", type !== "Tarjeta");
+  ui.transferFields.classList.toggle("hidden", type !== "Transferencia");
+  ui.cashFields.classList.toggle("hidden", type !== "Taquilla");
+  if (type === "Transferencia") ui.transferAmount.value = totalsNow().totalGTQ.toFixed(2);
 }
 
-function hydrateReservations() {
-  const parsed = safeParseJson(readStorage(STORAGE_KEYS.reservations));
-
-  if (!Array.isArray(parsed)) {
-    reservations = [];
-    return;
-  }
-
-  reservations = parsed
-    .map((item) => normalizeReservation(item))
-    .filter((item) => item !== null);
-
-  for (const reservation of reservations) {
-    if (!seatAvailability[reservation.movieId]) {
-      seatAvailability[reservation.movieId] = new Set();
-    }
-
-    for (const seat of reservation.seats) {
-      seatAvailability[reservation.movieId].add(seat);
-    }
-  }
+function paymentType() {
+  const checked = Array.from(ui.paymentTypeRadios).find((r) => r.checked);
+  return checked ? checked.value : "Tarjeta";
 }
 
-function normalizeReservation(item) {
-  if (!item || typeof item !== "object") {
-    return null;
+function paymentDetails(type) {
+  if (type === "Transferencia") {
+    return {
+      bank: ui.bankName.value,
+      voucher: ui.voucherNumber.value.trim(),
+      amountGTQ: Number(ui.transferAmount.value)
+    };
   }
-
-  if (!movieById.has(item.movieId)) {
-    return null;
+  if (type === "Tarjeta") {
+    const digits = ui.cardNumber.value.replace(/\s/g, "");
+    return { last4: digits.slice(-4), expiry: ui.cardExpiry.value };
   }
-
-  const safeSeats = Array.isArray(item.seats) ? sortSeatCodes(Array.from(new Set(item.seats.filter((seat) => isValidSeatCode(seat))))) : [];
-  if (safeSeats.length === 0) {
-    return null;
-  }
-
-  const movie = movieById.get(item.movieId);
-  const totalGTQ = Number.isFinite(Number(item.totalGTQ)) && Number(item.totalGTQ) > 0 ? Number(item.totalGTQ) : safeSeats.length * movie.priceGTQ;
-
-  return {
-    id: typeof item.id === "string" && item.id.trim() ? item.id.trim() : buildReservationId(),
-    movieId: item.movieId,
-    seats: safeSeats,
-    quantity: safeSeats.length,
-    totalGTQ,
-    cardHolder: sanitizeText(item.cardHolder, 60) || "Cliente",
-    email: sanitizeText(item.email, 80) || "sin-correo@local",
-    paymentMethod: sanitizeText(item.paymentMethod, 40) || "Tarjeta",
-    createdAt: isValidDate(item.createdAt) ? item.createdAt : new Date().toISOString()
-  };
+  return { note: "Pago en taquilla" };
 }
 
-function persistState() {
-  writeStorage(STORAGE_KEYS.reservations, JSON.stringify(reservations));
-  writeStorage(STORAGE_KEYS.seats, JSON.stringify(serializeSeatAvailability()));
-  writeStorage(STORAGE_KEYS.currency, preferredCurrency);
+function paymentLabel(reservation) {
+  if (reservation.paymentType === "Transferencia") return `Transferencia ${reservation.paymentDetails.bank} / Boleta ${reservation.paymentDetails.voucher}`;
+  if (reservation.paymentType === "Tarjeta") return `Tarjeta terminada en ${reservation.paymentDetails.last4}`;
+  return "Pago en taquilla";
+}
+function ensureMovieTime() {
+  const movie = movieById.get(selectedMovieId);
+  if (!movie) return;
+  if (!movie.showtimes.includes(selectedTime)) selectedTime = movie.showtimes[0];
 }
 
-function serializeSeatAvailability() {
-  const serialized = {};
-  for (const movie of movies) {
-    const seats = seatAvailability[movie.id] ? Array.from(seatAvailability[movie.id]) : [];
-    serialized[movie.id] = sortSeatCodes(seats);
+function ensureSeatSet() {
+  const key = currentShowKey();
+  if (!seatState[key]) seatState[key] = randomSeatSet(10);
+}
+
+function currentShowKey() {
+  return `${selectedMovieId}|${selectedDate}|${selectedTime}`;
+}
+
+function randomSeatSet(count) {
+  const all = Array.from(validSeatCodes);
+  const set = new Set();
+  const target = Math.min(count, all.length - 5);
+  while (set.size < target) {
+    set.add(all[Math.floor(Math.random() * all.length)]);
   }
-  return serialized;
+  return set;
 }
 
-function isValidSeatCode(seatCode) {
-  return /^[A-H](10|[1-9])$/.test(String(seatCode || ""));
+function selectedExtras() {
+  return EXTRAS
+    .map((x) => ({ id: x.id, name: x.name, priceGTQ: x.priceGTQ, qty: Number(extrasState[x.id] || 0), totalGTQ: Number(extrasState[x.id] || 0) * x.priceGTQ }))
+    .filter((x) => x.qty > 0);
 }
 
-function sortSeatCodes(seats) {
-  return seats.sort((first, second) => {
-    const rowDiff = first.charCodeAt(0) - second.charCodeAt(0);
-    if (rowDiff !== 0) {
-      return rowDiff;
-    }
-    return Number(first.slice(1)) - Number(second.slice(1));
+function totalsNow() {
+  const movie = movieById.get(selectedMovieId);
+  const ticketsGTQ = movie ? selectedSeats.size * movie.priceGTQ : 0;
+  const extrasGTQ = selectedExtras().reduce((sum, x) => sum + x.totalGTQ, 0);
+  return { ticketsGTQ, extrasGTQ, totalGTQ: ticketsGTQ + extrasGTQ };
+}
+
+function qtyOptions(selected) {
+  const out = [];
+  for (let i = 0; i <= 8; i += 1) out.push(`<option value="${i}" ${i === selected ? "selected" : ""}>${i}</option>`);
+  return out.join("");
+}
+
+function moneyByCurrency(amountGTQ) {
+  const main = currency === "GTQ" ? money(amountGTQ, "GTQ") : money(toUSD(amountGTQ), "USD");
+  const alt = currency === "GTQ" ? money(toUSD(amountGTQ), "USD") : money(amountGTQ, "GTQ");
+  return `${main} | ${alt}`;
+}
+
+function money(value, curr) {
+  return new Intl.NumberFormat(curr === "GTQ" ? "es-GT" : "en-US", { style: "currency", currency: curr, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+}
+
+function toUSD(gtq) {
+  return gtq / EXCHANGE_RATE;
+}
+
+function sortSeats(list) {
+  return list.slice().sort((a, b) => {
+    const row = a.charCodeAt(0) - b.charCodeAt(0);
+    if (row !== 0) return row;
+    return Number(a.slice(1)) - Number(b.slice(1));
   });
 }
 
-function formatCurrency(value, currency) {
-  const locale = currency === "GTQ" ? "es-GT" : "en-US";
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(value);
-}
-
-function gtqToUsd(amountGTQ) {
-  return amountGTQ / EXCHANGE_RATE;
-}
-
-function passesLuhn(digits) {
-  let sum = 0;
-  let shouldDouble = false;
-
-  for (let index = digits.length - 1; index >= 0; index -= 1) {
-    let digit = Number(digits[index]);
-
-    if (shouldDouble) {
-      digit *= 2;
-      if (digit > 9) {
-        digit -= 9;
-      }
-    }
-
-    sum += digit;
-    shouldDouble = !shouldDouble;
+function dateNice(iso) {
+  try {
+    return new Date(`${iso}T00:00:00`).toLocaleDateString("es-GT", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+  } catch (_e) {
+    return iso;
   }
+}
 
+function dateTimeNice(iso) {
+  try {
+    return new Date(iso).toLocaleString("es-GT", { dateStyle: "medium", timeStyle: "short" });
+  } catch (_e) {
+    return iso;
+  }
+}
+
+function validMonth(value) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(value || ""));
+  if (!m) return false;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (month < 1 || month > 12) return false;
+  const now = new Date();
+  return year > now.getFullYear() || (year === now.getFullYear() && month >= now.getMonth() + 1);
+}
+
+function luhn(number) {
+  let sum = 0;
+  let dbl = false;
+  for (let i = number.length - 1; i >= 0; i -= 1) {
+    let d = Number(number[i]);
+    if (dbl) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+    dbl = !dbl;
+  }
   return sum % 10 === 0;
 }
 
-function isValidExpiry(value) {
-  const match = /^(0[1-9]|1[0-2])\/(\d{2})$/.exec(value);
-  if (!match) {
-    return false;
-  }
-
-  const month = Number(match[1]);
-  const year = 2000 + Number(match[2]);
-  const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
-
-  return year > currentYear || (year === currentYear && month >= currentMonth);
-}
-
-function setFormError(message) {
+function formError(message) {
   ui.paymentError.textContent = message;
 }
 
-function showToast(message, isError) {
-  if (toastTimer) {
-    window.clearTimeout(toastTimer);
-  }
+function applyTheme(theme) {
+  document.body.dataset.theme = theme;
+  ui.themeToggle.textContent = theme === "retro-dark" ? "Modo claro" : "Modo nocturno";
+  ui.themeToggle.setAttribute("aria-pressed", String(theme === "retro-dark"));
+}
 
+function toast(message, error) {
+  if (toastTimer) window.clearTimeout(toastTimer);
   ui.toast.textContent = message;
-  ui.toast.classList.toggle("error", Boolean(isError));
+  ui.toast.classList.toggle("error", Boolean(error));
   ui.toast.classList.add("show");
-
-  toastTimer = window.setTimeout(() => {
-    ui.toast.classList.remove("show");
-  }, 2800);
+  toastTimer = window.setTimeout(() => ui.toast.classList.remove("show"), 2600);
 }
 
-function buildReservationId() {
-  const now = Date.now().toString().slice(-8);
-  const randomPart = Math.floor(Math.random() * 900 + 100);
-  return `R-${now}-${randomPart}`;
+function emptyExtras() {
+  return EXTRAS.reduce((acc, item) => ({ ...acc, [item.id]: 0 }), {});
 }
 
-function formatDate(isoDate) {
-  try {
-    return new Date(isoDate).toLocaleString("es-GT", {
-      dateStyle: "medium",
-      timeStyle: "short"
-    });
-  } catch (_error) {
-    return "Fecha invalida";
-  }
-}
-
-function safeParseJson(raw) {
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(raw);
-  } catch (_error) {
-    return null;
-  }
-}
-
-function readStorage(key) {
-  try {
-    return localStorage.getItem(key);
-  } catch (_error) {
-    return null;
-  }
-}
-
-function writeStorage(key, value) {
-  try {
-    localStorage.setItem(key, value);
-  } catch (_error) {
-    // Ignore storage errors to keep UI usable.
-  }
-}
-
-function sanitizeText(value, maxLength) {
-  return String(value || "")
-    .replace(/[<>]/g, "")
-    .trim()
-    .slice(0, maxLength);
+function cleanText(value, max) {
+  return String(value || "").replace(/[<>]/g, "").trim().slice(0, max);
 }
 
 function escapeHtml(value) {
@@ -907,21 +876,94 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function isValidDate(dateValue) {
-  return !Number.isNaN(new Date(dateValue).getTime());
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function toPdfAscii(text) {
-  return String(text)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\x20-\x7E]/g, "");
+function saveState() {
+  const safeSeats = {};
+  Object.entries(seatState).forEach(([key, set]) => {
+    safeSeats[key] = Array.from(set);
+  });
+
+  const prefs = {
+    currency,
+    theme: document.body.dataset.theme
+  };
+
+  writeRaw(STORAGE.prefs, JSON.stringify(prefs));
+  writeRaw(STORAGE.seats, JSON.stringify(safeSeats));
+  writeRaw(STORAGE.reservations, JSON.stringify(reservations));
 }
 
-function escapePdfText(text) {
-  return text.replace(/[\\()]/g, "\\$&");
+function loadState() {
+  const prefs = readJson(STORAGE.prefs);
+  if (prefs && typeof prefs === "object") {
+    currency = prefs.currency === "USD" ? "USD" : "GTQ";
+  }
+
+  const seatsRaw = readJson(STORAGE.seats);
+  if (seatsRaw && typeof seatsRaw === "object") {
+    Object.entries(seatsRaw).forEach(([key, list]) => {
+      if (!Array.isArray(list)) return;
+      seatState[key] = new Set(list.filter((x) => validSeatCodes.has(x)));
+    });
+  }
+
+  const reservationsRaw = readJson(STORAGE.reservations);
+  if (Array.isArray(reservationsRaw)) {
+    reservations = reservationsRaw
+      .filter((x) => x && x.id && x.movieId && Array.isArray(x.seats))
+      .map((x) => ({
+        id: cleanText(x.id, 40),
+        movieId: x.movieId,
+        showDate: /^\d{4}-\d{2}-\d{2}$/.test(String(x.showDate || "")) ? x.showDate : todayISO(),
+        showTime: /^\d{2}:\d{2}$/.test(String(x.showTime || "")) ? x.showTime : "19:00",
+        showKey: x.showKey || `${x.movieId}|${x.showDate || todayISO()}|${x.showTime || "19:00"}`,
+        seats: sortSeats(x.seats.filter((s) => validSeatCodes.has(s))),
+        ticketCount: Number(x.ticketCount || x.seats.length || 0),
+        ticketPriceGTQ: Number(x.ticketPriceGTQ || 0),
+        ticketTotalGTQ: Number(x.ticketTotalGTQ || 0),
+        extras: Array.isArray(x.extras)
+          ? x.extras
+              .map((e) => ({
+                id: cleanText(e.id, 30),
+                name: cleanText(e.name, 50),
+                priceGTQ: Number(e.priceGTQ || 0),
+                qty: Number(e.qty ?? e.quantity ?? 0),
+                totalGTQ: Number(e.totalGTQ || 0)
+              }))
+              .filter((e) => e.qty > 0)
+          : [],
+        extrasTotalGTQ: Number(x.extrasTotalGTQ || 0),
+        totalGTQ: Number(x.totalGTQ || 0),
+        customerName: cleanText(x.customerName, 60) || "Cliente",
+        email: cleanText(x.email, 80) || "sin-correo@local",
+        paymentType: cleanText(x.paymentType, 30) || "Taquilla",
+        paymentDetails: x.paymentDetails && typeof x.paymentDetails === "object" ? x.paymentDetails : {},
+        createdAt: x.createdAt || new Date().toISOString()
+      }));
+    reservations.forEach((r) => {
+      if (!seatState[r.showKey]) seatState[r.showKey] = new Set();
+      r.seats.forEach((s) => validSeatCodes.has(s) && seatState[r.showKey].add(s));
+    });
+  }
 }
 
-function byteLength(text) {
-  return new TextEncoder().encode(text).length;
+function readJson(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_e) {
+    return null;
+  }
+}
+
+function writeRaw(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (_e) {
+    // ignore storage errors
+  }
 }
